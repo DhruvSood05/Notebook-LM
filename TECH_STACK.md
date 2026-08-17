@@ -2,7 +2,7 @@
 
 1. express
 2. typescript
-3. prisma
+3. drizzle
 4. postgres
 5. better-auth
 6. openai
