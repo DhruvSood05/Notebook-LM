@@ -1,12 +1,19 @@
-// Consolas, 'Courier New', monospace
 import express from "express";
+import "dotenv/config";
 
 const app = express();
+const PORT = process.env.PORT;
 
 async function main() {
-  app.listen(3000, () => {
-    console.log("Server is listening on port: 3000");
+  app.listen(PORT, () => {
+    console.log("Server is listening on port: ", PORT);
   });
 }
+
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+  });
+});
 
 main();
