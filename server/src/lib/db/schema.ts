@@ -7,6 +7,8 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { on } from "node:cluster";
+import { table } from "node:console";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -90,6 +92,7 @@ export const verification = pgTable(
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  workspaces: many(workspace),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -102,6 +105,50 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export const accountRelations = relations(account, ({ one }) => ({
   user: one(user, {
     fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+export const workspace = pgTable(
+  "workspace",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, {
+        onDelete: "cascade",
+      }),
+
+    title: text("title").notNull(),
+
+    description: text("description"),
+
+    icon: text("icon"),
+
+    defaultModel: text("default_model").notNull().default("gpt-4o-mini"),
+
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("workspace_user_id_idx").on(table.userId)],
+);
+
+export const workspaceRelations = relations(workspace, ({ one }) => ({
+  user: one(user, {
+    fields: [workspace.userId],
     references: [user.id],
   }),
 }));
