@@ -6,9 +6,10 @@ import {
   boolean,
   index,
   uniqueIndex,
+  pgEnum,
+  jsonb,
+  integer,
 } from "drizzle-orm/pg-core";
-import { on } from "node:cluster";
-import { table } from "node:console";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -146,9 +147,118 @@ export const workspace = pgTable(
   (table) => [index("workspace_user_id_idx").on(table.userId)],
 );
 
-export const workspaceRelations = relations(workspace, ({ one }) => ({
+export const workspaceRelations = relations(workspace, ({ one, many }) => ({
   user: one(user, {
     fields: [workspace.userId],
     references: [user.id],
+  }),
+
+  sources: many(source),
+}));
+
+export const sourceTypeEnum = pgEnum("source_type", [
+  "PDF",
+  "WEBSITE",
+  "YOUTUBE",
+  "TEXT",
+  "MARKDOWN",
+]);
+
+export const sourceStatusEnum = pgEnum("source_status", [
+  "PENDING",
+  "PROCESSING",
+  "READY",
+  "FAILED",
+]);
+
+export const source = pgTable(
+  "source",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    workspaceId: text("workspace_id")
+      .notNull()
+      .references(() => workspace.id, {
+        onDelete: "cascade",
+      }),
+
+    type: sourceTypeEnum("type").notNull(),
+
+    title: text("title").notNull(),
+
+    content: text("content"),
+
+    url: text("url"),
+
+    status: sourceStatusEnum("status").notNull().default("PENDING"),
+
+    metadata: jsonb("metadata"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+
+  (table) => [
+    index("source_workspace_id_idx").on(table.workspaceId),
+
+    index("source_workspace_id_type_idx").on(table.workspaceId, table.type),
+
+    index("source_workspace_id_status_idx").on(table.workspaceId, table.status),
+  ],
+);
+
+export const sourceChunk = pgTable(
+  "source_chunk",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+
+    sourceId: text("source_id")
+      .notNull()
+      .references(() => source.id, {
+        onDelete: "cascade",
+      }),
+
+    index: integer("index").notNull(),
+
+    content: text("content").notNull(),
+
+    tokenCount: integer("token_count"),
+
+    metadata: jsonb("metadata"),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+
+  (table) => [
+    uniqueIndex("source_chunk_source_id_index_uidx").on(
+      table.sourceId,
+      table.index,
+    ),
+
+    index("source_chunk_source_id_idx").on(table.sourceId),
+  ],
+);
+
+export const sourceRelations = relations(source, ({ one, many }) => ({
+  workspace: one(workspace, {
+    fields: [source.workspaceId],
+    references: [workspace.id],
+  }),
+
+  chunks: many(sourceChunk),
+}));
+
+export const sourceChunkRelations = relations(sourceChunk, ({ one }) => ({
+  source: one(source, {
+    fields: [sourceChunk.sourceId],
+    references: [source.id],
   }),
 }));
